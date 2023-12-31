@@ -7,7 +7,7 @@ Project for Advanced Topics in Database Systems course of ECE ntua , academic ye
 ``` 
     start_dfs.sh  
     start_yarn.sh  
-    $SPARK_HOME/sbin/stop-history-server.sh
+    $SPARK_HOME/sbin/start-history-server.sh
 ```  
 3. Create ~/scripts directory.
 4. Add the scripts contained in the "Setup Scripts" folder in the~/scripts directory, then execute them in the following order:
