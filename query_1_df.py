@@ -2,6 +2,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import Window
 from pyspark.conf import SparkConf
 from pyspark.sql.functions import asc, desc, to_date, year, month, count, col, row_number
+import time
 
 #
 #   Get dataframe
@@ -33,6 +34,9 @@ crime_df = crime_df.withColumn('Date Rptd', to_date('Date Rptd', "MM/dd/yyyy '12
 #window used in line 4 for to rank months for each year
 w = Window.partitionBy('year').orderBy(desc('crime_total'))
 
+#start clock
+start_time = time.time()
+
 #Lines 1-2 : get year, month columns 
 #Line 3: group by year and month and get # of crimes for each pair
 #Line 4: get ranking of months for each year
@@ -45,5 +49,7 @@ crime_df_query_1 = crime_df.withColumn('year', year("DATE OCC")) \
                            .filter(col('month_rank') < 4) \
                            .orderBy(asc('year'),desc('crime_total'))
 
-#print results
 crime_df_query_1.show(42)
+
+#print results and time taken
+print(f"Time taken for 1st query (Dataframe API): {(time.time() - start_time)} seconds.")

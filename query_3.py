@@ -2,16 +2,15 @@ from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql.functions import desc, to_date, year, count, col, udf
 from pyspark.sql.types import StructField, StructType, IntegerType, StringType, DoubleType
-import sys
+import time, sys
 
 #
 #   Get Dataframes
 #
 
 #set executors to 2,3 or 4
-join_strat = sys.argv[1]
-executors = sys.argv[2]
-cores = "2"
+executors = sys.argv[1]
+cores = "1" #we can increase vcores of each executor to increase parallelism
 
 #Set up config, 4 spark executors
 spark_conf = SparkConf()
@@ -22,8 +21,9 @@ spark_conf.set("spark.executor.cores", cores)
 spark = SparkSession \
     .builder \
     .config(conf = spark_conf) \
-    .appName(f"Query 3 (Dataframe API)({executors} executors) (strategy: {join_strat})") \
+    .appName(f"Query 3 (Dataframe API)({executors} executors)") \
     .getOrCreate()
+
 
 #Define Schemas for each dataset
 rev_geo_schema = StructType([
@@ -66,6 +66,10 @@ def convert_income_to_num(income):
 #Register udf
 income_to_num = udf(convert_income_to_num, "double")
 
+#start clock
+start_time = time.time()
+
+
 #Filtering/Adjusting the dataframes
 
 #Select crimes occured in 2015, then remove victimless crimes(checking victim descent is enough).
@@ -80,9 +84,9 @@ rev_geo_df_filtered = rev_geo_df.dropDuplicates(['LAT','LON'])
 #Line 1: join filtered crime dataframe with rev_geo dataframe on Coordinates
 #Line 2: keep only Victim Descent and Zip Code columns
 #Line 3: join results with income dataframe on Zip Code
-joined_df = rev_geo_df.join(crime_df_filtered.hint(join_strat),['LAT','LON']) \
+joined_df = rev_geo_df.join(crime_df_filtered,['LAT','LON']) \
                  .select(crime_df_filtered['Vict Descent'], rev_geo_df['Zip Code']) \
-                 .join(income_df.hint(join_strat), 'Zip Code') 
+                 .join(income_df, 'Zip Code') 
 
 #Line 1: keep only zip codes and E.M.I.
 #Line 2: keep only 1 zip code if multiple match a pair of coordinates
@@ -97,14 +101,26 @@ codes_by_income = joined_df.select('Zip Code','Estimated Median Income') \
 max3 = codes_by_income.head(3)
 min3 = codes_by_income.tail(3)
 
-#create a dataframe with them
-maxmin = spark.createDataFrame(data = [max3[0],max3[1],max3[2],min3[2],min3[1],min3[0]], schema = income_schema_2)
+#create dataframes containing them
 
-#keep crimes related only to those zip codes
-query_3_result = joined_df.join(maxmin.hint(join_strat),'Zip Code') \
+max_zips = spark.createDataFrame(data = [max3[0],max3[1],max3[2]], schema = income_schema_2)
+min_zips = spark.createDataFrame(data = [min3[0],min3[1],min3[2]], schema = income_schema_2)
+
+#keep crimes related only to 3 max zip codes
+query_3_result_1 = joined_df.join(max_zips,'Zip Code') \
                           .groupby('Vict Descent').agg(count('*').alias('#Victims')) \
                           .orderBy(desc('#Victims'))
 
-query_3_result.explain(mode="formatted")
 #show results
-print(query_3_result.show())
+print("3 Zip Codes with Maximum E.M.I.")
+print(query_3_result_1.show())
+
+#keep crimes related only to 3 min zip codes
+query_3_result_2 = joined_df.join(min_zips,'Zip Code') \
+                          .groupby('Vict Descent').agg(count('*').alias('#Victims')) \
+                          .orderBy(desc('#Victims'))
+
+#show results
+print("3 Zip Codes with Minimum E.M.I.")
+print(query_3_result_2.show())
+print(f"Time taken for 3rd query (Dataframe API) ({executors} Spark executors): {(time.time() - start_time)} seconds.")

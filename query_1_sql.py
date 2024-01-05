@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql.functions import to_date
+import time
 
 #
 #   Get dataframe
@@ -9,7 +10,7 @@ from pyspark.sql.functions import to_date
 #Set up config, 4 spark executors
 spark_conf = SparkConf()
 spark_conf.set("spark.executor.instances", "4")
-spark_conf.set("spark.executor.cores","2")
+spark_conf.set("spark.executor.cores","4")
 
 #Create SparkSession
 spark = SparkSession \
@@ -52,8 +53,14 @@ query_1 = '''
             WHERE subq.month_rank < 4
         '''
 
+#start clock
+start_time = time.time()
+
 #Execute query
 results = spark.sql(query_1)
 
-#14 years , so show 3 * 14 = 42 results 
+
 results.show(42)
+
+#14 years , so show 3 * 14 = 42 results 
+print(f"Time taken for 1st query (SQL API): {(time.time() - start_time)} seconds.")

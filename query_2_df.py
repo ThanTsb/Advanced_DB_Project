@@ -2,6 +2,7 @@ from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql.types import IntegerType
 from pyspark.sql.functions import udf, desc, to_date, count, col
+import time
 
 #
 #   Get dataframe
@@ -46,6 +47,9 @@ def get_time_of_day(time):
 #Register udf
 time_of_day = udf(get_time_of_day, "string")
 
+#start clock
+start_time = time.time()
+
 #Line 1: convert 'TIME OCC' column to IntegerType,
 #Line 2: get time of day for each crime using udf time_of_day
 #Line 3: keep only street crimes
@@ -59,3 +63,6 @@ crime_df_query_2 = crime_df.withColumn('TIME OCC', crime_df['TIME OCC'].cast(Int
  
 #Print results 
 crime_df_query_2.show()
+
+#Print time taken
+print(f"Time taken for 2nd query (Dataframe API): {(time.time() - start_time)} seconds.")

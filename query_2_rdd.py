@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql.functions import to_date
+import time
 
 #
 #   Get dataframe
@@ -29,13 +30,14 @@ crime_df = crime_df.withColumn('Date Rptd', to_date('Date Rptd', "MM/dd/yyyy '12
 #   Query 2, RDD API
 #
 
-#if we read the csv using textFile it is parsed incorrectly, so we convert from dataframe instead
+#get rdd from crime dataframe
+crime_rdd = crime_df.rdd
+
+#if we read the csv using textFile we parse some rows of the dataset incorrectly, 
+#so we convert from dataframe instead
 
 #crime_rdd = spark.textFile("hdfs://okeanos-master:54310/datasets/Crime_Data_from_2010_to_Present.csv") \
 #                      .map(lambda x: x.split(","))
-
-#get rdd from crime dataframe
-crime_rdd = crime_df.rdd
 
 #udf func for time_of_day conversion
 def get_time_of_day(time):
@@ -51,6 +53,9 @@ def get_time_of_day(time):
     else:
         return "night"
 
+#start clock
+start_time = time.time()
+
 #filter street crimes only, calculate time of day, then reduce by time of day (sort by descending # of crimes)
 filtered_crime_rdd = crime_rdd.filter(lambda x: x[15] == "STREET") \
                               .map(lambda x: (get_time_of_day(x[3]), 1)) \
@@ -59,3 +64,6 @@ filtered_crime_rdd = crime_rdd.filter(lambda x: x[15] == "STREET") \
 
 #show results
 print(filtered_crime_rdd.collect()) 
+
+#show time taken
+print(f"Time taken for 2nd query (RDD API): {(time.time() - start_time)} seconds.")

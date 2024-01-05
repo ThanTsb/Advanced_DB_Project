@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql.functions import avg, asc, desc, to_date, year, count, col, udf, min
 from pyspark.sql.types import StructField, StructType, IntegerType, StringType, DoubleType
-import os, sys
+import os, sys, time
 
 from geopy.distance import geodesic
 
@@ -10,7 +10,7 @@ from geopy.distance import geodesic
 #   Get Dataframes
 #
 
-join_strat = sys.argv[1]
+
 executors = "4"
 cores = "2"
 
@@ -24,7 +24,7 @@ spark_conf.set("spark.submit.pyFiles",os.path.join(os.getcwd(), "query_4_modules
 spark = SparkSession \
     .builder \
     .config(conf = spark_conf) \
-    .appName(f"Query 4 (Dataframe API) (Second Version) ({join_strat})") \
+    .appName(f"Query 4 (Dataframe API) (Second Version))") \
     .getOrCreate()
 
 #set up lapd schema
@@ -58,6 +58,9 @@ def get_distance(lat1,long1,lat2,long2):
 #register udf
 udf_distance = udf((get_distance), "double")
 
+#start clock
+start_time = time.time()
+
 #filter (0,0) entries, get only firearm crimes, seperate year from date occured
 crime_df_filtered = crime_df.filter(col("LAT") != 0) \
                             .filter(col("Weapon Used Cd").startswith('1')) \
@@ -70,7 +73,7 @@ minimum_distances_df = crime_df_filtered.crossJoin(lapd_df) \
                                         .agg(min('DISTANCE').alias('MIN_DISTANCE'))
 
 #join with the filtered crime dataframe to get other needed columns 
-new_crime_df = crime_df_filtered.join(minimum_distances_df.hint(join_strat), "DR_NO")
+new_crime_df = crime_df_filtered.join(minimum_distances_df, "DR_NO")
 
 #group by year, then get average distance for each year
 df_average_distances = new_crime_df.groupBy('YEAR') \
@@ -81,11 +84,14 @@ df_num_crimes = new_crime_df.groupBy('YEAR') \
                             .agg(count('*').alias('NUM_CRIMES')) \
                             
 #join the 2 previous dataframes                            
-query_4a_2 = df_average_distances.join(df_num_crimes.hint(join_strat),'YEAR') \
+query_4a_2 = df_average_distances.join(df_num_crimes,'YEAR') \
                                  .orderBy(asc('YEAR'))
 
 #show results of query 4a (second version)
+
 output_4a_2 = query_4a_2.show(14)
+
+print(f"Time taken for query 4_a (Dataframe API) (Second Version) ): {(time.time() - start_time)} seconds.")
 
 query_4a_2.explain(mode="formatted")
 
@@ -95,6 +101,8 @@ print(output_4a_2)
 #   query 4b (second version)
 #
 
+#start clock
+start_time = time.time()
 
 #filter (0,0) entries, get crimes with weapons, seperate year from date occured
 crime_df_filtered_2 = crime_df.filter(col("LAT") != 0) \
@@ -110,7 +118,7 @@ minimum_distances_df_2 = distances_df_2.groupBy('DR_NO') \
                                        .agg(min('DISTANCE').alias('DISTANCE'))
 
 #join the temp df with distances_df_2 on DR_NO and DISTANCE, in order to get pd names with minimum distance 
-new_crime_df_2 = distances_df_2.join(minimum_distances_df_2.hint(join_strat), ['DR_NO','DISTANCE'], how = "right")
+new_crime_df_2 = distances_df_2.join(minimum_distances_df_2, ['DR_NO','DISTANCE'], how = "right")
                                 
 new_crime_df_3 = new_crime_df_2.filter(col('DISTANCE').isNotNull())
 
@@ -123,11 +131,13 @@ df_num_crimes_2 = new_crime_df_3.groupBy('DIVISION') \
                                 .agg(count('*').alias('NUM_CRIMES')) 
                             
 #join the 2 previous dataframes                            
-query_4b_2 = df_average_distances_2.join(df_num_crimes_2.hint(join_strat),'DIVISION') \
+query_4b_2 = df_average_distances_2.join(df_num_crimes_2,'DIVISION') \
                                  .orderBy(desc('NUM_CRIMES'))
 
 #show results of query 4b (second version)
 output_4b_2 = query_4b_2.show(22)
+
+print(f"Time taken for query 4_b (Dataframe API) (Second Version)): {(time.time() - start_time)} seconds.")
 
 query_4b_2.explain(mode="formatted")
 
