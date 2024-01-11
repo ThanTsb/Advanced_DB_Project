@@ -10,7 +10,7 @@ import time
 #Set up config, 4 spark executors
 spark_conf = SparkConf()
 spark_conf.set("spark.executor.instances", "4")
-spark_conf.set("spark.executor.cores","4")
+spark_conf.set("spark.executor.cores","2")
 
 #Create SparkSession
 spark = SparkSession \
